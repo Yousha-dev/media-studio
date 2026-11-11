@@ -1,0 +1,249 @@
+[
+  {
+    "id": "gemini-3.1-flash-image-preview",
+    "title": "Gemini 3.1 Flash Image Preview",
+    "provider": "gemini",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "gemini-3-pro-image-preview",
+    "title": "Gemini 3 Pro Image Preview",
+    "provider": "gemini",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "gemini-2.5-flash-image",
+    "title": "Gemini 2.5 Flash Image",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "gemini-3.1-flash-image",
+    "title": "Gemini 3.1 Flash Image",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "gemini-3-pro-image",
+    "title": "Gemini 3 Pro Image",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "imagen-4.0-generate-001",
+    "title": "Imagen 4.0 Generate",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "imagen-4.0-ultra-generate-001",
+    "title": "Imagen 4.0 Ultra Generate",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "imagen-3.0-generate-002",
+    "title": "Imagen 3.0 Generate",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "imagen-3.0-fast-generate-001",
+    "title": "Imagen 3.0 Fast Generate",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "imagen-4.0-fast-generate-001",
+    "title": "Imagen 4.0 Fast Generate",
+    "provider": "vertex",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-image",
+    "title": "grok-imagine-image",
+    "provider": "xai",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-image-2.0",
+    "title": "grok-imagine-image-2.0",
+    "provider": "xai",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-image-quality",
+    "title": "grok-imagine-image-quality",
+    "provider": "xai",
+    "kind": "image",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-video",
+    "title": "grok-imagine-video",
+    "provider": "xai",
+    "kind": "video",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-video-1.5",
+    "title": "grok-imagine-video-1.5",
+    "provider": "xai",
+    "kind": "video",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "grok-imagine-video-1.5-lite",
+    "title": "Grok Imagine Video 1.5 Lite",
+    "provider": "xai",
+    "kind": "video",
+    "note": "Known to the proxy catalog. Connect to check whether your configured accounts list it."
+  },
+  {
+    "id": "gpt-image-1.5",
+    "title": "gpt-image-1.5",
+    "provider": "codex",
+    "kind": "image",
+    "adapter": "image",
+    "note": "Image generation and editing through the proxy Codex image handler. Account access and quota apply."
+  },
+  {
+    "id": "gpt-image-2",
+    "title": "gpt-image-2",
+    "provider": "codex",
+    "kind": "image",
+    "adapter": "image",
+    "note": "Image generation and editing through the proxy Codex image handler. Account access and quota apply."
+  },
+  {
+    "id": "gpt-image-2.5",
+    "title": "gpt-image-2.5",
+    "provider": "codex",
+    "kind": "image",
+    "adapter": "image",
+    "note": "Image generation and editing through the proxy Codex image handler. Account access and quota apply."
+  },
+  {
+    "id": "gpt-image-2.5-flare",
+    "title": "gpt-image-2.5-flare",
+    "provider": "codex",
+    "kind": "image",
+    "adapter": "image",
+    "note": "Image generation and editing through the proxy Codex image handler. Account access and quota apply."
+  },
+  {
+    "id": "gpt-image-2.5-sunburst",
+    "title": "gpt-image-2.5-sunburst",
+    "provider": "codex",
+    "kind": "image",
+    "adapter": "image",
+    "note": "Image generation and editing through the proxy Codex image handler. Account access and quota apply."
+  },
+  {
+    "id": "grok-tts",
+    "title": "grok-tts",
+    "provider": "xai",
+    "kind": "voice",
+    "adapter": "speech",
+    "note": "Speech synthesis through the xAI speech route. Requires a configured xAI account."
+  },
+  {
+    "id": "grok-voice-tts-1.0",
+    "title": "grok-voice-tts-1.0",
+    "provider": "xai",
+    "kind": "voice",
+    "adapter": "speech",
+    "note": "Speech synthesis through the xAI speech route. Requires a configured xAI account."
+  },
+  {
+    "id": "gpt-live-1-codex",
+    "title": "GPT-Live · Codex",
+    "provider": "ChatGPT subscription",
+    "kind": "voice",
+    "adapter": "live",
+    "hidden": true,
+    "note": "Dedicated Codex OAuth WebRTC route; absent from the normal model list. Voice entitlement must be confirmed by starting a session."
+  },
+  {
+    "id": "gpt-realtime",
+    "title": "GPT-Realtime · WebSocket",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model. This account returned real speech audio in a live diagnostic."
+  },
+  {
+    "id": "gpt-realtime-1.5",
+    "title": "gpt-realtime-1.5",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model."
+  },
+  {
+    "id": "gpt-realtime-2",
+    "title": "gpt-realtime-2",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model."
+  },
+  {
+    "id": "gpt-realtime-2.1",
+    "title": "gpt-realtime-2.1",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model."
+  },
+  {
+    "id": "gpt-realtime-2.1-mini",
+    "title": "gpt-realtime-2.1-mini",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model."
+  },
+  {
+    "id": "gpt-realtime-mini",
+    "title": "gpt-realtime-mini",
+    "provider": "ChatGPT / Codex OAuth",
+    "kind": "voice",
+    "adapter": "realtime-ws",
+    "alias": false,
+    "note": "Native Realtime WebSocket voice. The requested model is sent unchanged; the server reports the actual model after connecting. Uses TCP rather than WebRTC / UDP. Account access varies by model."
+  },
+  {
+    "id": "gpt-live-1",
+    "title": "GPT-Live 1 · public API",
+    "provider": "OpenAI API",
+    "kind": "voice",
+    "adapter": "unsupported",
+    "note": "The public Live API is separate from the Codex subscription route. This proxy has no public /v1/live/sessions handler."
+  },
+  {
+    "id": "sora-2",
+    "title": "Sora 2",
+    "provider": "OpenAI API",
+    "kind": "video",
+    "adapter": "unsupported",
+    "note": "The proxy OpenAI-style Sora endpoint maps to Grok video. It does not provide the actual Sora model. Use a Grok entry to test video here."
+  }
+]

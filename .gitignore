@@ -1,0 +1,9 @@
+/dist/
+/stage/
+*.dll
+*.so
+*.dylib
+*.exe
+*.log
+.env
+.env.*

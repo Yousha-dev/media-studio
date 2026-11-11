@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Media Studio · CLIProxyAPI</title>
+  <link rel="stylesheet" href="./studio.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./studio"><span class="brandmark">M</span> Media Studio <span class="version">/ CLIProxyAPI</span></a><a class="back" href="/management.html" target="_top">Back to management ↗</a></header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">YOUR MULTIMODAL WORKBENCH</p><h1>See what your models can make.</h1><p class="lede">Explore images, voice, and video. Try a prompt, listen to a response, or start a conversation.</p></div><span class="localbadge"><i></i> Runs on your proxy</span></section>
+    <form id="connectForm" class="connection"><div class="keyfield"><label for="apiKey">Proxy client key</label><input id="apiKey" type="password" autocomplete="off" placeholder="Paste a client API key from management"></div><button id="connect" class="primary" type="submit">Connect & refresh</button><button id="disconnect" type="button">Disconnect</button><div class="connectionnote"><span id="connectionState" role="status">Catalog preview</span><small>Key stays in this page’s memory. Demo requests use your account quota.</small></div></form>
+    <div id="notice" class="notice" role="status" aria-live="polite">Connect to discover your registered media models. Dedicated voice routes are shown even when absent from Auth Files → Models.</div>
+    <div class="workspace">
+      <aside class="catalog"><div class="cataloghead"><h2>Model library</h2><span id="modelCount" class="count">—</span></div><div class="tabs" aria-label="Media categories"><button type="button" data-kind="all" class="active">All</button><button type="button" data-kind="image">Images</button><button type="button" data-kind="voice">Voice</button><button type="button" data-kind="video">Video</button></div><label class="searchlabel" for="search">Search models</label><input id="search" type="search" placeholder="Model or provider…"><label class="check"><input id="listedOnly" type="checkbox" checked> Hide reference catalog</label><div id="modelList" class="modellist"></div><p class="librarynote">Shows models listed by your proxy plus a detected dedicated voice route. Voice access remains unverified until tested. Uncheck to browse the full reference catalog.</p></aside>
+      <section class="bench">
+        <div class="selectedhead"><div><p id="selectedKind" class="eyebrow">IMAGE WORKSPACE</p><h2 id="selectedTitle">Select a model</h2><code id="selectedID"></code></div><span id="selectedStatus" class="statuspill"></span></div>
+        <p id="modelNote" class="modelnote"></p>
+        <div id="unsupported" class="notice warning" hidden>This model has no demo adapter in this proxy release.</div>
+        <form id="demoForm">
+          <div id="imageOptions" class="options"><div class="two"><div><label for="imageMode">Mode</label><select id="imageMode"><option value="generate">Generate an image</option><option value="edit">Edit an image</option></select></div><div><label for="imageSize">Size</label><select id="imageSize"><option value="auto">Provider default</option><option>1024x1024</option><option>1536x1024</option><option>1024x1536</option></select></div></div><div class="two"><div><label for="quality">Quality</label><select id="quality"><option value="auto">Provider default</option><option>low</option><option>medium</option><option>high</option></select></div><div id="imageFileWrap" hidden><label for="imageFile">Reference image (up to 10 MB)</label><input id="imageFile" type="file" accept="image/png,image/jpeg,image/webp"></div></div></div>
+          <div id="voiceOptions" class="options" hidden><div class="two"><div><label for="voice">Voice</label><select id="voice"></select></div><div><label for="voiceState">Session</label><p id="voiceState" class="fieldvalue">Microphone off</p></div></div><p id="voiceHint" class="hint">Your browser asks for microphone permission when you start. Use headphones to avoid feedback.</p></div>
+          <div id="videoOptions" class="options" hidden><div class="two"><div><label for="seconds">Duration</label><select id="seconds"><option value="4">4 seconds</option><option value="6">6 seconds</option><option value="8">8 seconds</option><option value="10">10 seconds</option><option value="15">15 seconds</option></select></div><div><label for="videoSize">Frame</label><select id="videoSize"><option value="1280x720">Landscape · 1280 × 720</option><option value="720x1280">Portrait · 720 × 1280</option></select></div></div></div>
+          <label id="promptLabel" for="prompt">Your prompt</label><textarea id="prompt" rows="5" required maxlength="12000" placeholder="Describe what you want to create…">A quiet mountain lake at sunrise, soft mist over the water, cinematic light, natural colors.</textarea>
+          <div class="actions"><button id="run" class="primary" type="submit">Generate image ↗</button><button id="stop" type="button" disabled>Stop</button><button id="mute" type="button" hidden>Mute microphone</button><span id="runState" role="status">Ready when you are</span></div>
+        </form>
+        <section class="outputsection"><div class="outputhead"><h3>Output</h3><button id="clear" class="textbutton" type="button">Clear</button></div><div id="output" class="output"><div class="empty"><span class="emptyicon">✧</span><p>Your next idea starts here.</p><small>Generated media and session transcripts appear in this space.</small></div></div><audio id="remoteAudio" controls hidden></audio><div id="transcript" class="transcript" hidden aria-live="polite"></div></section>
+        <details class="diagnostics"><summary>Request & response details</summary><p>Client keys and inline media are omitted. Provider errors appear here to help diagnose account access.</p><pre id="details">No request yet.</pre></details>
+      </section>
+    </div>
+    <footer>Media Studio 1.0 · Uses your existing proxy routes and account scheduling. No third-party scripts or additional media providers.</footer>
+  </main>
+</body>
+</html>

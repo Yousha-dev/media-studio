@@ -1,0 +1,34 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Go and ABI checks
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+          go build -buildmode=c-shared -trimpath -o /tmp/media-studio.so .
+      - name: JavaScript checks
+        run: |
+          node --check app.mjs
+          node --check models.mjs
+          node --check realtime.mjs
+          node --check browser-checks.js
+          node --test models.test.mjs
