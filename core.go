@@ -9,7 +9,7 @@ import (
 )
 
 // Release builds inject the tagged version with -X main.pluginVersion.
-var pluginVersion = "1.0.0"
+var pluginVersion = "1.0.1"
 
 const resourceBase = "/v0/resource/plugins/media-studio/"
 

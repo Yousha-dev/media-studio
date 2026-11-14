@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- Add the Windows ARM64 shared-library package required by the Plugin Store.
+- Require all six platform archives, matching checksums, root-level libraries
+  and correct binary architectures before publishing a release.
+- Add packaging regression tests, including the missing Windows ARM64 case.
+
 ## 1.0.0
 
 - First public Media Studio release for CLIProxyAPI ABI v1 / schema 6.

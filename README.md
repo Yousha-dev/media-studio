@@ -51,7 +51,7 @@ The management sidebar opens **Media Studio**, or visit `/v0/resource/plugins/me
 
 ## Build and test
 
-Requires Go 1.26.10 or later, a compatible C compiler, and Node.js for tests. Clone this repository and run:
+Requires Go 1.26.10 or later, a compatible C compiler, Node.js for interface tests, and Python 3.9 or later for packaging tests. Clone this repository and run:
 
 ```sh
 go vet ./...
@@ -59,12 +59,13 @@ go test -race ./...
 node --test models.test.mjs
 node --check app.mjs
 node --check realtime.mjs
+python3 -m unittest discover -s scripts -p 'test_*.py'
 CGO_ENABLED=1 go build -buildmode=c-shared -trimpath -o media-studio.so .
 ```
 
 Use `.dll` on Windows or `.dylib` on macOS; set a matching C compiler/target when cross-compiling. `browser-checks.js` is an optional fixture expression for an isolated Studio tab with simulated providers and a synthetic microphone. It is not a standalone Node test, and must not be injected into a real workload tab.
 
-Release CI builds Windows x64, Linux x64/ARM64 and macOS x64/ARM64 archives. ABI v1 / schema 6 resource loading has been verified against official CLIProxyAPI 8.0.51. Endpoint availability and model access may differ on other host versions.
+Release CI builds all six required targets: Windows x64/ARM64, Linux x64/ARM64 and macOS x64/ARM64. Before publishing, it verifies the complete archive matrix, checksums, zip layouts and binary architectures. ABI v1 / schema 6 resource loading has been verified against official CLIProxyAPI 8.0.51 on Windows x64; ARM64 packages have build and format validation, not runtime verification. Endpoint availability and model access may differ on other host versions.
 
 All resources are public static files; inference remains protected by the host's client authentication and existing scheduler. No management mutation routes are registered. Plugin assets have a restrictive content-security policy; resource paths are allowlisted. External result URLs must be HTTPS (or same-origin HTTP); credentials and executable URLs are rejected.
 
