@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+- Merge provider-advertised media adapters with the public plugin release.
+- Add audio-file transcription and editable JSON requests for embeddings,
+  reranking, moderation, decisions and extractions.
+- Add OpenRouter image and chat-media responses, provider voice choices,
+  and HeyGen PCM-to-WAV playback.
+- Keep the official repository metadata, shared-library ABI, voice transports,
+  six-platform builds and release packaging checks.
+
 ## 1.0.1
 
 - Add the Windows ARM64 shared-library package required by the Plugin Store.

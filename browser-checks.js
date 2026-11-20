@@ -31,14 +31,27 @@
   };
   window.fetch = async (input, options = {}) => {
     const path = String(input);
-    if (!path.startsWith('/v1')) return originalFetch(input, options);
+    if (!path.startsWith('/v1') && !path.startsWith('/api/alpha/')) return originalFetch(input, options);
     requests.push({path, body: options.body});
     if (path === '/v1/models') return reply({data: [
       {id: 'gpt-image-2', owned_by: 'openai'}, {id: 'gemini-3.1-flash-image', owned_by: 'antigravity'},
-      {id: 'grok-imagine-video', owned_by: 'xai'}, {id: 'grok-tts', owned_by: 'xai'}]});
+      {id: 'grok-imagine-video', owned_by: 'xai'}, {id: 'grok-tts', owned_by: 'xai'},
+      {id: 'openrouter/test/image', media_gateway: true, output_modalities: ['image'], endpoints: ['/api/v1/images']},
+      {id: 'openrouter/heygen/voice', media_gateway: true, output_modalities: ['speech'], endpoints: ['/v1/audio/speech']},
+      {id: 'test/embeddings', media_gateway: true, output_modalities: ['embeddings'], endpoints: ['/v1/embeddings']},
+      {id: 'test/transcription', media_gateway: true, output_modalities: ['transcription'], endpoints: ['/v1/audio/transcriptions']},
+      {id: 'test/music', media_gateway: true, output_modalities: ['audio'], endpoints: ['/v1/chat/completions']},
+      {id: 'test/video', media_gateway: true, output_modalities: ['video'], endpoints: ['/v1/videos']},
+      {id: 'test/decisions', media_gateway: true, output_modalities: ['decisions'], endpoints: ['/api/alpha/decisions']}]});
     if (path === '/v1/realtime') return new Response(JSON.stringify({error:{code:'websocket_upgrade_required'}}),{status:426,headers:{'Content-Type':'application/json'}});
     if (path === '/v1/images/generations' || path === '/v1/images/edits') return reply({data: [{b64_json: png}]});
     if (path.includes(':generateContent')) return reply({candidates: [{content: {parts: [{inlineData: {mimeType: 'image/png', data: png}}]}}]});
+    if (path === '/v1/images') return reply({data: [{b64_json: png, media_type: 'image/png'}]});
+    if (path === '/v1/embeddings') return reply({data: [{embedding: [0.1, 0.2]}]});
+    if (path === '/api/alpha/decisions') return reply({decisions: {polite: true}});
+    if (path === '/v1/audio/transcriptions') return reply({text: 'Synthetic transcription result.'});
+    if (path === '/v1/chat/completions') return reply({choices: [{message: {audio: {data: btoa('synthetic audio')}}}]});
+    if (path === '/v1/videos') return reply({id: 'advertised-video', status: 'completed', url: location.origin + '/test.mp4'});
     if (path === '/v1/audio/speech') return new Response(new Uint8Array(64), {headers: {'Content-Type': 'audio/mpeg'}});
     if (path === '/v1/videos/generations') return reply({request_id: 'test-video', status: 'queued'});
     if (path === '/v1/videos/test-video') return reply({status: 'done', video: {url: location.origin + '/test.mp4'}});
@@ -50,7 +63,7 @@
     try {
       $('apiKey').value = 'test-only-placeholder'; $('connectForm').requestSubmit();
       await until(() => $('connectionState').textContent.startsWith('Connected'));
-      assert(document.querySelectorAll('.modelcard.listed').length === 4, 'Live discovery merges media models');
+      assert(document.querySelectorAll('.modelcard.listed').length === 11, 'Live discovery merges media models');
       assert([...document.querySelectorAll('.modelcard')].some(b => b.textContent.includes('GPT-Live')), 'Hidden Codex voice remains visible');
       choose('gpt-image-2'); await run(); assert(!!document.querySelector('#output img'), 'Image generation preview');
       $('imageMode').value = 'edit'; $('imageMode').dispatchEvent(new Event('change'));
@@ -62,6 +75,31 @@
       choose('grok-tts'); await run(); assert(!!document.querySelector('#output audio'), 'Speech playback controls');
       choose('grok-imagine-video'); await run();
       assert(requests.some(r => r.path === '/v1/videos/test-video') && !!document.querySelector('#output video'), 'Video polling and preview');
+      choose('openrouter/test/image'); await run();
+      assert(requests.some(r => r.path === '/v1/images') && !!document.querySelector('#output img'), 'OpenRouter advertised image endpoint and preview');
+      choose('openrouter/heygen/voice'); await run();
+      const speechRequest = JSON.parse(requests.filter(r => r.path === '/v1/audio/speech').at(-1).body);
+      assert(speechRequest.response_format === 'pcm' && !('voice' in speechRequest), 'HeyGen uses PCM and the provider default voice');
+      const audio = document.querySelector('#output audio');
+      const wav = await (await originalFetch(audio.src)).arrayBuffer();
+      assert(new DataView(wav).getUint32(24, true) === 44100, 'HeyGen response is wrapped as a playable 44.1 kHz WAV');
+      choose('test/embeddings'); await run();
+      assert(requests.some(r => r.path === '/v1/embeddings') && document.querySelector('#output pre').textContent.includes('embedding'), 'Other APIs sends JSON and displays results');
+      choose('test/decisions'); await run();
+      assert(requests.some(r => r.path === '/api/alpha/decisions'), 'Decision requests stay on the same-origin alpha route');
+      choose('test/transcription');
+      const audioTransfer = new DataTransfer();
+      audioTransfer.items.add(new File([new Uint8Array(44)], 'synthetic.wav', {type: 'audio/wav'}));
+      $('audioFile').files = audioTransfer.files;
+      $('prompt').value = '';
+      await run();
+      assert(requests.some(r => r.path === '/v1/audio/transcriptions' && r.body.get('file').name === 'synthetic.wav'), 'Transcription uploads the chosen audio file without requiring a prompt');
+      assert($('output').textContent.includes('Synthetic transcription result.'), 'Transcription text is displayed');
+      choose('test/music'); $('prompt').value = 'Synthetic test'; await run();
+      const chatRequest = JSON.parse(requests.find(r => r.path === '/v1/chat/completions').body);
+      assert(chatRequest.modalities.includes('audio') && !!document.querySelector('#output audio'), 'Chat-media preserves advertised audio output and playback');
+      choose('test/video'); await run();
+      assert(requests.some(r => r.path === '/v1/videos') && !!document.querySelector('#output video'), 'Video generation uses the advertised video endpoint');
       let stopped = 0, closed = 0;
       const track = {enabled: true, stop() {stopped++;}};
       const stream = {getTracks: () => [track], getAudioTracks: () => [track]};
@@ -95,7 +133,7 @@
       assert(document.querySelectorAll('.modelcard').length === 0, 'Search filters catalog');
       $('search').value = ''; $('search').dispatchEvent(new Event('input'));
       $('listedOnly').checked = true; $('listedOnly').dispatchEvent(new Event('change'));
-      assert(document.querySelectorAll('.modelcard').length === 6, 'Proxy view keeps both detected voice transports alongside listed models');
+      assert(document.querySelectorAll('.modelcard').length === 13, 'Proxy view keeps both detected voice transports alongside listed models');
       assert(![...document.querySelectorAll('.modelcard')].some(b=>b.textContent.includes('Sora')||b.textContent.includes('Compatibility alias')), 'Proxy view hides reference models and voice aliases');
       assert(JSON.stringify({...localStorage}) === storageBefore, 'No client credential persisted');
       $('disconnect').click(); await until(() => $('connectionState').textContent === 'Disconnected');
@@ -103,6 +141,10 @@
       report.state = 'passed';
     } catch (error) {report.state = 'failed'; report.error = error.message;}
     finally {
+      const result = document.createElement('pre');
+      result.id = 'mediaStudioTestReport';
+      result.textContent = JSON.stringify(report, null, 2);
+      document.body.append(result);
       $('stop').click();
       window.fetch = originalFetch;
       window.RTCPeerConnection = OriginalPeer;

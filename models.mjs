@@ -4,15 +4,30 @@ export function baseID(id) {
 
 export function inferKind(model) {
   const id = baseID(model.id || '');
-  const output = (model.supportedOutputModalities || model.output_modalities || model.architecture?.output_modalities || []).map(x => x.toLowerCase());
+  const output = (model.supportedOutputModalities || model.supported_output_modalities || model.output_modalities || model.architecture?.output_modalities || []).map(x => x.toLowerCase());
+  if (output.some(x => ['embeddings','rerank','decisions','transcription','moderation'].includes(x))) return 'other';
   if (output.includes('video') || /^(sora-|veo[-\d])|grok-imagine-video|text-to-video/.test(id)) return 'video';
-  if (output.includes('audio') || /realtime|gpt-live|(?:^|[-_])tts(?:[-_]|$)|transcrib|whisper|speech/.test(id)) return 'voice';
+  if (output.includes('audio') || output.includes('speech') || /realtime|gpt-live|(?:^|[-_])tts(?:[-_]|$)|transcrib|whisper|speech/.test(id)) return 'voice';
   if (output.includes('image') || /gpt-image|grok-imagine-image|imagen-|flux|stable-diffusion|gemini.*image|dall-e/.test(id)) return 'image';
+  if (output.length && !output.includes('text')) return 'other';
   return null;
 }
 
-export function adapterFor(id, kind) {
+export function adapterFor(id, kind, model = {}) {
   const name = baseID(id);
+  if (model.media_gateway) {
+    const endpoints = (model.endpoints || []).map(endpoint => endpoint.replace(/^\/v1\//, '/api/v1/'));
+    if (endpoints.includes('/api/v1/realtime')) return 'realtime-ws';
+    if (endpoints.includes('/api/v1/images')) return 'openrouter-image';
+    if (endpoints.includes('/api/v1/images/generations')) return 'image';
+    if (endpoints.includes('/api/v1/audio/transcriptions')) return 'transcription';
+    if (endpoints.includes('/api/v1/audio/speech')) return 'speech';
+    if (kind === 'video' && endpoints.includes('/api/v1/videos')) return 'video';
+    const jsonEndpoints = ['/api/v1/embeddings', '/api/v1/rerank', '/api/v1/moderations',
+      '/api/alpha/decisions', '/api/alpha/extractions'];
+    if (kind === 'other' && endpoints.some(endpoint => jsonEndpoints.includes(endpoint))) return 'json';
+    if (endpoints.includes('/api/v1/chat/completions') && ['image', 'voice'].includes(kind)) return 'chat-media';
+  }
   if (kind === 'image') {
     if (/^gemini.*image/.test(name)) return 'gemini';
     if (/^imagen-/.test(name)) return 'unsupported';
@@ -37,10 +52,30 @@ export function mergeCatalog(catalog, liveModels, {voiceRouteDetected = false} =
     if (!kind) continue;
     merged.set(m.id, {...known, id: m.id, title: m.display_name || known?.title || m.id,
       provider: m.owned_by || known?.provider || 'Proxy', kind,
-      adapter: known?.adapter || adapterFor(m.id, kind), listed: true, source: '/v1/models',
+      adapter: m.media_gateway ? adapterFor(m.id, kind, m) : known?.adapter || adapterFor(m.id, kind),
+      endpoints: m.endpoints?.map(endpoint => endpoint.replace(/^\/v1\//, '/api/v1/')), voices: m.supported_voices,
+      architecture: {...m.architecture, output_modalities: m.architecture?.output_modalities ||
+        m.supportedOutputModalities || m.supported_output_modalities || m.output_modalities || []},
+      listed: true, source: '/v1/models',
       note: known?.note || 'Discovered from the proxy. A listed model still needs a successful demo to confirm access.'});
   }
   return [...merged.values()].sort((a,b) => Number(b.listed) - Number(a.listed) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
+}
+
+export function sampleRequest(model) {
+  const endpoints = model.endpoints || [];
+  if (endpoints.includes('/api/v1/embeddings')) return {input: 'A quiet mountain lake at sunrise.'};
+  if (endpoints.includes('/api/v1/rerank')) {
+    return {query: 'Which place has water?', documents: ['A mountain lake.', 'A dry desert.'], top_n: 2};
+  }
+  if (endpoints.includes('/api/v1/moderations')) return {input: 'A friendly greeting.'};
+  return {state: 'The assistant politely answered the question.',
+    questions: {polite: {type: 'noul', instructions: 'Is the assistant polite?'}}};
+}
+
+export function speechFormat(model) {
+  // HeyGen speech returns 16-bit, 44.1 kHz mono PCM.
+  return model.id.startsWith('openrouter/heygen/') ? {format: 'pcm', rate: 44100} : {format: 'mp3'};
 }
 
 export function statusFor(m, connected) {

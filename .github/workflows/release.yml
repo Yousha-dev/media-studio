@@ -1,11 +1,13 @@
 name: release
 
-# Builds CLIProxyAPI plugin-store assets for a v<version> tag:
+# Builds CLIProxyAPI plugin-store assets for a version bump on main or a v<version> tag:
 # <id>_<version>_<goos>_<goarch>.zip (library at the zip root) and checksums.txt.
 
 on:
   push:
+    branches: ["main"]
     tags: ["v*"]
+    paths: ["core.go"]
 
 permissions:
   contents: write
@@ -17,6 +19,8 @@ jobs:
   validation:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     env:
       CGO_ENABLED: "1"
     steps:
@@ -25,6 +29,17 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      - name: Read and validate release version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^var pluginVersion = "\([0-9][0-9.]*\)"/\1/p' core.go)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "The tag must match the plugin version in core.go."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Regression checks
         run: |
           go vet ./...
@@ -39,6 +54,8 @@ jobs:
   windows-linux:
     needs: validation
     runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.validation.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -50,7 +67,7 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="$RELEASE_VERSION"
           mkdir -p dist
           # glibc 2.17 keeps the .so loadable on older distributions and Docker images.
           for spec in windows/amd64/x86_64-windows-gnu/dll windows/arm64/aarch64-windows-gnu/dll linux/amd64/x86_64-linux-gnu.2.17/so linux/arm64/aarch64-linux-gnu.2.17/so; do
@@ -70,6 +87,7 @@ jobs:
     needs: validation
     runs-on: macos-latest
     env:
+      RELEASE_VERSION: ${{ needs.validation.outputs.version }}
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +97,7 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="$RELEASE_VERSION"
           mkdir -p dist
           for goarch in amd64 arm64; do
             arch=$([ "$goarch" = amd64 ] && echo x86_64 || echo arm64)
@@ -95,7 +113,7 @@ jobs:
           path: dist/*.zip
 
   release:
-    needs: [windows-linux, darwin]
+    needs: [validation, windows-linux, darwin]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,10 +124,11 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.validation.outputs.version }}
         run: |
           set -euo pipefail
           cd dist
           sha256sum *.zip > checksums.txt
-          python3 "$GITHUB_WORKSPACE/scripts/verify_release.py" --version "${GITHUB_REF_NAME#v}" --directory .
-          gh release create "$GITHUB_REF_NAME" *.zip checksums.txt \
-            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+          python3 "$GITHUB_WORKSPACE/scripts/verify_release.py" --version "$RELEASE_VERSION" --directory .
+          gh release create "v$RELEASE_VERSION" *.zip checksums.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "v$RELEASE_VERSION" --generate-notes

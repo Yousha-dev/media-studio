@@ -1,5 +1,5 @@
-import {mergeCatalog, statusFor, visibleInProxyView, safeMediaURL, videoState, summarize, imagePayload, gatherICE} from './models.mjs';
-import {RealtimeVoice} from './realtime.mjs';
+import {mergeCatalog, statusFor, visibleInProxyView, safeMediaURL, videoState, summarize, imagePayload, gatherICE, sampleRequest, speechFormat} from './models.mjs';
+import {RealtimeVoice, pcmWav} from './realtime.mjs';
 
 const $ = id => document.getElementById(id);
 let catalog = [], models = [], selected = null, kind = 'all', key = '', connected = false;
@@ -29,7 +29,7 @@ function setBusy(value) {
   $('run').disabled = busy || !connected || !selected || selected.adapter === 'unsupported';
   $('stop').disabled = !busy;
   $('connect').disabled = busy;
-  for (const id of ['imageMode','imageSize','quality','imageFile','voice','seconds','videoSize','prompt']) $(id).disabled = busy;
+  for (const id of ['imageMode','imageSize','quality','imageFile','audioFile','voice','seconds','videoSize','prompt']) $(id).disabled = busy;
   for (const card of document.querySelectorAll('.modelcard')) card.disabled = busy;
 }
 function currentModels() {
@@ -61,20 +61,23 @@ function choose(m) {
   $('unsupported').hidden = m.adapter !== 'unsupported';
   $('imageOptions').hidden = m.kind !== 'image'; $('voiceOptions').hidden = m.kind !== 'voice'; $('videoOptions').hidden = m.kind !== 'video';
   const live = ['live','realtime-ws'].includes(m.adapter);
-  $('promptLabel').textContent = live ? 'Conversation instructions' : m.adapter === 'speech' ? 'Text to speak' : 'Your prompt';
+  $('audioFileWrap').hidden = m.adapter !== 'transcription';
+  $('prompt').required = m.adapter !== 'transcription';
+  $('promptLabel').textContent = m.adapter === 'json' ? 'Request JSON (model is added automatically)' : live ? 'Conversation instructions' : m.adapter === 'speech' ? 'Text to speak' : 'Your prompt';
   $('voiceHint').textContent = m.adapter === 'realtime-ws' ? 'Realtime voice over WebSocket: microphone in, speech playback out. It uses the selected Realtime model and avoids WebRTC / UDP. A brief greeting plays after connecting.' : live ? 'Codex GPT-Live uses WebRTC. If media cannot connect, select gpt-realtime for WebSocket voice instead. Your browser asks for microphone permission when you start.' : 'Generate speech and play or download the returned audio. No microphone is needed.';
   $('voiceState').textContent = live ? 'Microphone off' : 'Speech playback';
-  $('run').textContent = live ? 'Start voice session ↗' : m.kind === 'image' ? 'Generate image ↗' : m.kind === 'video' ? 'Generate video ↗' : 'Generate speech ↗';
-  const voices = live ? ['marin','cedar','alloy','ash','coral','sage','verse'] : ['eve','ara','rex','sal','leo','luna','orion','iris','aurora','celeste','lumen'];
+  $('run').textContent = m.adapter === 'transcription' ? 'Transcribe audio ↗' : m.adapter === 'json' ? 'Send request ↗' : live ? 'Start voice session ↗' : m.kind === 'image' ? 'Generate image ↗' : m.kind === 'video' ? 'Generate video ↗' : 'Generate speech ↗';
+  const voices = m.voices?.length ? m.voices.map(v => typeof v==='string'?v:v.id) : m.id.startsWith('openrouter/') ? ['default'] : live ? ['marin','cedar','alloy','ash','coral','sage','verse'] : ['eve','ara','rex','sal','leo','luna','orion','iris','aurora','celeste','lumen'];
   $('voice').replaceChildren(...voices.map(v => { const option=document.createElement('option'); option.value=v; option.textContent=v; return option; }));
-  if (!previous || previous.kind !== m.kind || (previous.adapter === 'speech') !== (m.adapter === 'speech')) $('prompt').value = m.adapter === 'speech' ? 'Hello! This is a voice demo through my local model proxy.' : defaults[m.kind];
+  if (m.adapter === 'json') $('prompt').value = JSON.stringify(sampleRequest(m),null,2);
+  else if (!previous || previous.kind !== m.kind || (previous.adapter === 'speech') !== (m.adapter === 'speech')) $('prompt').value = m.adapter === 'speech' ? 'Hello! This is a voice demo through my local model proxy.' : defaults[m.kind] || '';
   $('imageMode').value = 'generate'; $('imageFileWrap').hidden = true;
   $('imageMode').disabled = m.adapter !== 'image';
   renderModels(); setBusy(false); $('imageMode').disabled = m.adapter !== 'image';
 }
 async function api(path, options = {}) {
   if (!key) throw new Error('Connect with a proxy client key first.');
-  if (!/^\/v(?:1|1beta)\//.test(path) || path.includes('://')) throw new Error('Only this proxy’s media endpoints are allowed.');
+  if (!/^\/(?:v(?:1|1beta)\/|api\/alpha\/(?:decisions|extractions)$)/.test(path) || path.includes('://')) throw new Error('Only this proxy’s media endpoints are allowed.');
   const headers = new Headers(options.headers); headers.set('Authorization', `Bearer ${key}`);
   const response = await fetch(path, {...options, headers, signal: options.signal || controller?.signal});
   if (!response.ok) {
@@ -130,6 +133,20 @@ function base64URL(data, type = 'image/png') {
   const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0)); return objectURL(new Blob([bytes],{type}));
 }
 async function imageDemo(model, prompt) {
+  if (model.adapter === 'openrouter-image') {
+    const body = {model: model.id, prompt};
+    details({method: 'POST', endpoint: '/v1/images', body});
+    const result = await jsonAPI('/v1/images', body);
+    details(result);
+    $('output').replaceChildren();
+    let count = 0;
+    for (const image of result.data || []) {
+      const src = image.b64_json ? base64URL(image.b64_json, image.media_type || 'image/png') : safeMediaURL(image.url, location.origin);
+      if (src) { addMedia('img', src, 'image.png'); count++; }
+    }
+    if (!count) throw new Error('No image returned. Check response details.');
+    return;
+  }
   if (model.adapter === 'gemini') {
     const payload = {contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}};
     details({method:'POST',endpoint:'/v1beta/models/{model}:generateContent',body:payload});
@@ -160,17 +177,85 @@ async function imageDemo(model, prompt) {
   if (result.error) throw new Error(result.error.message || JSON.stringify(result.error));
   details(result); $('output').replaceChildren(); let count=0;
   for (const image of result.data || []) {
-    const src = image.b64_json ? base64URL(image.b64_json, image.output_format === 'jpeg' ? 'image/jpeg' : image.output_format === 'webp' ? 'image/webp' : 'image/png') : safeMediaURL(image.url, location.origin);
+    const src = image.b64_json ? base64URL(image.b64_json, image.media_type || (image.output_format === 'jpeg' ? 'image/jpeg' : image.output_format === 'webp' ? 'image/webp' : 'image/png')) : safeMediaURL(image.url, location.origin);
     if (src) { addMedia('img',src,'image.png'); count++; }
   }
   if (!count) throw new Error('No supported image returned. See the response details.');
 }
-async function speechDemo(model,prompt) {
-  const body={model:model.id,input:prompt,voice:$('voice').value,response_format:'mp3'};
-  details({method:'POST',endpoint:'/v1/audio/speech',body});
-  const response=await api('/v1/audio/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const blob=await response.blob(); if (!blob.size) throw new Error('The speech endpoint returned empty audio.');
-  $('output').replaceChildren(); addMedia('audio',objectURL(blob),'speech.mp3'); details({content_type:blob.type,bytes:blob.size});
+async function speechDemo(model, prompt) {
+  const {format, rate} = speechFormat(model);
+  const body = {model: model.id, input: prompt, voice: $('voice').value, response_format: format};
+  if (model.id.startsWith('openrouter/') && body.voice === 'default') delete body.voice;
+  details({method: 'POST', endpoint: '/v1/audio/speech', body});
+  const response = await api('/v1/audio/speech', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  let blob = await response.blob();
+  if (!blob.size) throw new Error('The speech endpoint returned empty audio.');
+  if (format === 'pcm') {
+    const wav = pcmWav([new Uint8Array(await blob.arrayBuffer())], rate);
+    blob = new Blob([wav], {type: 'audio/wav'});
+  }
+  $('output').replaceChildren();
+  addMedia('audio', objectURL(blob), format === 'pcm' ? 'speech.wav' : 'speech.mp3');
+  details({content_type: blob.type, bytes: blob.size});
+}
+async function jsonDemo(model, prompt) {
+  let body;
+  try { body = JSON.parse(prompt); }
+  catch { throw new Error('Enter a valid JSON object.'); }
+  if (!body || Array.isArray(body) || typeof body !== 'object') throw new Error('Enter a JSON object.');
+  body.model = model.id;
+  const supported = ['/api/v1/embeddings', '/api/v1/rerank', '/api/v1/moderations', '/api/alpha/decisions', '/api/alpha/extractions'];
+  const upstream = (model.endpoints || []).find(endpoint => supported.includes(endpoint));
+  if (!upstream) throw new Error('This model has no supported JSON endpoint.');
+  const endpoint = upstream.startsWith('/api/v1/') ? upstream.slice(4) : upstream;
+  details({method: 'POST', endpoint, body});
+  const result = await jsonAPI(endpoint, body);
+  details(result);
+  $('output').replaceChildren();
+  const pre = document.createElement('pre');
+  pre.textContent = summarize(result);
+  $('output').append(pre);
+}
+async function transcriptionDemo(model) {
+  const file = $('audioFile').files[0];
+  if (!file) throw new Error('Choose an audio file to transcribe.');
+  if (file.size > 20 * 1024 * 1024) throw new Error('Choose a file up to 20 MB.');
+  const form = new FormData();
+  form.set('model', model.id);
+  form.set('file', file);
+  form.set('response_format', 'json');
+  const response = await api('/v1/audio/transcriptions', {method: 'POST', body: form});
+  const result = await response.json();
+  details(result);
+  message(result.text || summarize(result));
+}
+async function chatMediaDemo(model, prompt) {
+  const output = model.architecture?.output_modalities || [];
+  const body = {model: model.id, messages: [{role: 'user', content: prompt}], modalities: output, stream: false};
+  if (output.includes('audio')) body.audio = {voice: 'alloy', format: 'mp3'};
+  details({method: 'POST', endpoint: '/v1/chat/completions', body});
+  const result = await jsonAPI('/v1/chat/completions', body);
+  details(result);
+  $('output').replaceChildren();
+  let count = 0;
+  for (const choice of result.choices || []) {
+    const message = choice.message || {};
+    for (const image of message.images || []) {
+      const value = image.image_url?.url || image.url;
+      const src = /^data:image\/(png|jpeg|webp);base64,/.test(value || '') ? value : safeMediaURL(value, location.origin);
+      if (src) { addMedia('img', src, 'image.png'); count++; }
+    }
+    if (message.audio?.data) {
+      addMedia('audio', base64URL(message.audio.data, 'audio/mpeg'), 'audio.mp3');
+      count++;
+    }
+    if (message.content) {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = typeof message.content === 'string' ? message.content : summarize(message.content);
+      $('output').append(paragraph);
+    }
+  }
+  if (!count) throw new Error('No image or audio returned. Check response details.');
 }
 async function pause(ms, signal) {
   if (signal.aborted) throw new DOMException('Stopped','AbortError');
@@ -182,7 +267,7 @@ async function pause(ms, signal) {
 }
 async function videoDemo(model,prompt) {
   const body={model:model.id,prompt,duration:Number($('seconds').value),aspect_ratio:$('videoSize').value==='1280x720'?'16:9':'9:16',resolution:'720p'};
-  const endpoint='/v1/videos/generations';
+  const endpoint = model.endpoints?.includes('/api/v1/videos') ? '/v1/videos' : '/v1/videos/generations';
   details({method:'POST',endpoint,body}); let result=await jsonAPI(endpoint,body);
   const id=result.request_id || result.id;
   if (!id && videoState(result)==='pending') throw new Error('The video endpoint did not return a job ID.');
@@ -284,14 +369,17 @@ async function stop() {
 }
 async function run(event) {
   event.preventDefault(); if (busy || !selected || selected.adapter==='unsupported' || !connected) return;
-  const model=selected,prompt=$('prompt').value.trim(); if (!prompt) return;
+  const model=selected,prompt=$('prompt').value.trim(); if (!prompt&&model.adapter!=='transcription') return;
   clearOutput(); controller=new AbortController(); const token=++operation; setBusy(true);
   $('runState').textContent='Running…'; message(model.adapter==='live'?'Requesting microphone access…':'Sending your request…');
   const start=performance.now();
   try {
     if (model.adapter==='live') {await voiceDemo(model,prompt,token); return;}
     if (model.adapter==='realtime-ws') {await realtimeDemo(model,prompt,token);return;}
-    if (model.kind==='image') await imageDemo(model,prompt);
+    if (model.adapter==='transcription') await transcriptionDemo(model);
+    else if (model.adapter==='json') await jsonDemo(model,prompt);
+    else if (model.adapter==='chat-media') await chatMediaDemo(model,prompt);
+    else if (model.kind==='image') await imageDemo(model,prompt);
     else if (model.adapter==='speech') await speechDemo(model,prompt);
     else if (model.kind==='video') await videoDemo(model,prompt);
     if (token!==operation) return;
