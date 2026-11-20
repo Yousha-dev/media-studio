@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {inferKind, mergeCatalog, adapterFor, statusFor, visibleInProxyView, safeMediaURL, videoState, imagePayload, gatherICE} from './models.mjs';
+import {inferKind, mergeCatalog, adapterFor, statusFor, visibleInProxyView, safeMediaURL, videoState, imagePayload, gatherICE, speechFormat, sampleRequest} from './models.mjs';
 import {encodePCM16,decodePCM16,pcmWav} from './realtime.mjs';
+
+test('HeyGen speech uses its required PCM format and playback sample rate',()=>{
+  assert.deepEqual(speechFormat({id:'openrouter/heygen/heygen-voice-1-turbo:free'}),{format:'pcm',rate:44100});
+  assert.deepEqual(speechFormat({id:'openrouter/fish-audio/s2.1-pro-free:free'}),{format:'mp3'});
+  const wav=pcmWav([new Uint8Array([0,0,1,0])],44100);
+  assert.equal(new DataView(wav.buffer).getUint32(24,true),44100);
+});
 
 test('input vision does not imply image generation', () => {
   assert.equal(inferKind({id:'gpt-6.1-sol', supportedInputModalities:['text','image'], supportedOutputModalities:['text']}), null);
@@ -69,4 +76,46 @@ test('terminal failed video jobs do not poll forever', () => {
 });
 test('automatic image options are omitted for provider compatibility', () => {
   assert.deepEqual(imagePayload('gpt-image-2','hello','auto','auto'),{model:'gpt-image-2',prompt:'hello',n:1,response_format:'b64_json'});
+});
+
+test('all OpenRouter output families use discovered endpoints instead of name guesses',()=>{
+  const live=[
+    {id:'openrouter/vendor/embed:free',architecture:{output_modalities:['embeddings']},endpoints:['/api/v1/embeddings'],media_gateway:true},
+    {id:'openrouter/vendor/voice:free',architecture:{output_modalities:['speech']},endpoints:['/api/v1/audio/speech'],media_gateway:true,supported_voices:['nadine']},
+    {id:'openrouter/vendor/picture:free',architecture:{output_modalities:['image']},endpoints:['/api/v1/images'],media_gateway:true},
+    {id:'openrouter/vendor/music',architecture:{output_modalities:['text','audio']},endpoints:['/api/v1/chat/completions'],media_gateway:true},
+    {id:'openrouter/vendor/movie:free',architecture:{output_modalities:['video']},endpoints:['/api/v1/videos'],media_gateway:true},
+  ];
+  const models=mergeCatalog([],live);
+  assert.equal(models.find(m=>m.id===live[0].id).adapter,'json');
+  assert.equal(models.find(m=>m.id===live[1].id).adapter,'speech');
+  assert.deepEqual(models.find(m=>m.id===live[1].id).voices,['nadine']);
+  assert.equal(models.find(m=>m.id===live[2].id).adapter,'openrouter-image');
+  assert.equal(models.find(m=>m.id===live[3].id).adapter,'chat-media');
+  assert.equal(models.find(m=>m.id===live[4].id).adapter,'video');
+});
+test('all provider namespaces expose declared media APIs and transcription uploads',()=>{
+ const live=[{id:'groq/whisper-large-v3',media_gateway:true,endpoints:['/api/v1/audio/transcriptions'],architecture:{output_modalities:['transcription']}},
+ {id:'freehub/provider/picture',media_gateway:true,endpoints:['/api/v1/images/generations'],architecture:{output_modalities:['image']}},
+ {id:'nvidia/embed',media_gateway:true,endpoints:['/api/v1/embeddings'],architecture:{output_modalities:['embeddings']}},
+ {id:'freehub/provider/live',media_gateway:true,endpoints:['/api/v1/realtime'],architecture:{output_modalities:['audio']}}];
+ const models=mergeCatalog([],live);for(const [i,adapter]of ['transcription','image','json','realtime-ws'].entries())assert.equal(models.find(m=>m.id===live[i].id).adapter,adapter);
+});
+
+
+test('chat media preserves output modalities without an architecture object', () => {
+  const [model] = mergeCatalog([], [{id: 'provider/music', media_gateway: true,
+    supported_output_modalities: ['text', 'audio'], endpoints: ['/v1/chat/completions']}]);
+  assert.equal(model.adapter, 'chat-media');
+  assert.deepEqual(model.architecture.output_modalities, ['text', 'audio']);
+  assert.deepEqual(model.endpoints, ['/api/v1/chat/completions']);
+});
+
+test('specialized JSON discovery uses normalized endpoints and matching sample requests', () => {
+  const [model] = mergeCatalog([], [{id: 'provider/embeddings', media_gateway: true,
+    output_modalities: ['embeddings'], endpoints: ['/v1/embeddings']}]);
+  assert.equal(model.kind, 'other');
+  assert.equal(model.adapter, 'json');
+  assert.deepEqual(sampleRequest(model), {input: 'A quiet mountain lake at sunrise.'});
+  assert.deepEqual(sampleRequest({endpoints: ['/api/v1/moderations']}), {input: 'A friendly greeting.'});
 });

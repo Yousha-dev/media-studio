@@ -12,6 +12,10 @@ Open <http://127.0.0.1:8317/v0/resource/plugins/media-studio/studio> and connect
 - Codex OAuth WebRTC voice with ICE candidate gathering, microphone permission, playback, event/transcript display, mute, stop, and a finite connection watchdog. If no voice events arrive, the page releases the microphone and recommends the WebSocket alternative.
 - xAI speech generation with playback/download.
 - Grok video generation, automatic status polling, stop polling, preview, and download.
+- Provider-advertised image, speech, video, realtime and chat-media adapters, including OpenRouter media endpoints and available voice choices.
+- Audio-file transcription through an advertised transcription endpoint, with a 20 MB upload limit.
+- An **Other APIs** tab with editable JSON requests for embeddings, reranking, moderation, decisions and extractions.
+- HeyGen PCM speech converted to a 44.1 kHz WAV for browser playback and download.
 - Request/response details for troubleshooting, with large known base64 payloads abbreviated. Diagnostics may include prompts, transcripts and provider-returned text; review them before sharing. No automatic generation or microphone activation.
 
 ## Availability and limits
@@ -20,7 +24,7 @@ The catalog is **not an entitlement list**. Listed models still need a successfu
 
 The **Hide reference catalog** checkbox is enabled by default. Unlike a strict `/v1/models` filter, it keeps the canonical Codex WebRTC and GPT-Realtime WebSocket entries visible when the voice route is detected, without relabeling them as listed models. Uncheck it to browse the full reference catalog. The route check is an authenticated plain GET to `/v1/realtime`; only the expected HTTP 426 error code identifies the route. It creates no session and does not use the microphone or consume voice quota.
 
-The proxy's WebRTC compatibility route maps Realtime names to `gpt-live-1-codex`. Studio instead uses the native `/v1/realtime?model=...` **WebSocket** route for Realtime models, which forwards the requested model unchanged. Each Realtime variant and account needs its own access and audio test. The actual public `gpt-live-1` API is not implemented by this proxy. Sora-style compatibility routes map to Grok video, so Sora is marked as needing an adapter. Imagen, unsupported video variants, transcription-only models, and other unsupported transports are visible when discovered but cannot run with an incorrect adapter. Image/video/audio *input* alone does not classify a text model as a media generator.
+The proxy's WebRTC compatibility route maps Realtime names to `gpt-live-1-codex`. Studio instead uses the native `/v1/realtime?model=...` **WebSocket** route for Realtime models, which forwards the requested model unchanged. Each Realtime variant and account needs its own access and audio test. The actual public `gpt-live-1` API is not implemented by this proxy. Sora-style compatibility routes map to Grok video, so Sora is marked as needing an adapter. Imagen, unsupported video variants and other unsupported transports are visible when discovered but require a matching adapter. Transcription uploads are available when discovery advertises a transcription endpoint. Image/video/audio *input* alone does not classify a text model as a media generator.
 
 The bundled catalog was extracted from CLIProxyAPI model definitions, plus the built-in image/speech/voice handlers. It is refreshed at page load against live discovery; it is not an exhaustive catalog of every external AI service. Adding a provider or model does not bypass endpoint/entitlement limitations. For arbitrary aliases whose metadata does not expose output modalities, use recognizable IDs or extend `models.mjs`.
 
@@ -29,6 +33,12 @@ GPT-Live and GPT-Realtime use different routes and have different account requir
 Voice requires localhost or HTTPS and microphone permission in a browser. If embedded iframe permissions block the microphone, open the direct Studio link in a browser tab. WebRTC depends on network/UDP reachability and existing relay configuration. Session configuration is sent through the proxy's Codex compatibility endpoint. Advanced backend tool delegation is not provided. Stop releases local media immediately and attempts upstream hangup. Closing/reloading also releases local microphone tracks. Stopping a video poll or aborting a generation request may leave provider work running.
 
 The WebSocket transport avoids UDP and does not require a WebRTC relay. Browser WebSockets cannot supply an Authorization header, so Studio uses the host's existing `auth_token` query parameter for this same-origin socket only. The URL is never navigated, persisted, or displayed in Studio diagnostics; the verified host masks that query value in its own logs; other gateways, reverse proxies and browser network tools may still record it. Use HTTPS outside localhost. Redact query strings, credentials, prompts and transcripts before sharing diagnostic or network logs. Speech is PCM16 mono at 24 kHz. Microphone frames are discarded while muted or while the socket is backpressured; local playback is interrupted when server VAD detects the user speaking.
+
+## Provider discovery extensions
+
+The additional adapters use model metadata returned by the host's authenticated `/v1/models` endpoint. A media gateway can set `media_gateway: true` and advertise `endpoints`, output modalities and `supported_voices`. Endpoint paths may use `/v1/` or `/api/v1/`. Studio sends requests to the corresponding same-origin proxy routes.
+
+Free Model Hub installations can supply this metadata and the additional routes through their media gateway. Standard CLIProxyAPI installations continue using the built-in adapters. The plugin provides the interface and requires the configured backend to implement each advertised API. Model discovery alone does not confirm account access, available quota or successful inference.
 
 ## Install
 
@@ -65,7 +75,7 @@ CGO_ENABLED=1 go build -buildmode=c-shared -trimpath -o media-studio.so .
 
 Use `.dll` on Windows or `.dylib` on macOS; set a matching C compiler/target when cross-compiling. `browser-checks.js` is an optional fixture expression for an isolated Studio tab with simulated providers and a synthetic microphone. It is not a standalone Node test, and must not be injected into a real workload tab.
 
-Release CI builds all six required targets: Windows x64/ARM64, Linux x64/ARM64 and macOS x64/ARM64. Before publishing, it verifies the complete archive matrix, checksums, zip layouts and binary architectures. ABI v1 / schema 6 resource loading has been verified against official CLIProxyAPI 8.0.51 on Windows x64; ARM64 packages have build and format validation, not runtime verification. Endpoint availability and model access may differ on other host versions.
+A version bump in `core.go` merged into `main` publishes a release after validation. Version tags must match the source version. Release CI builds all six required targets: Windows x64/ARM64, Linux x64/ARM64 and macOS x64/ARM64. Before publishing, it verifies the complete archive matrix, checksums, zip layouts and binary architectures. ABI v1 / schema 6 resource loading has been verified against official CLIProxyAPI 8.0.51 on Windows x64; ARM64 packages have build and format validation, not runtime verification. Endpoint availability and model access may differ on other host versions.
 
 All resources are public static files; inference remains protected by the host's client authentication and existing scheduler. No management mutation routes are registered. Plugin assets have a restrictive content-security policy; resource paths are allowlisted. External result URLs must be HTTPS (or same-origin HTTP); credentials and executable URLs are rejected.
 
